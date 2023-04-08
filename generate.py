@@ -16,7 +16,7 @@ from config import (
 
 
 M = 3
-N = 200_000
+N = 200
 SEED = 20
 
 
@@ -48,7 +48,7 @@ if __name__ == '__main__':
         with open(joinp(DAP, 'Xy.pkl'), 'wb') as f:
             save_dataset(X, y, f)
         # sampler
-        with open(joinp(DAP, 'gms.pkl'), 'wb') as f:
+        with open(joinp(DAP, 'wms.pkl'), 'wb') as f:
             wms.save(f)
         # run_id
         run_id = data_gen_run.info.run_id
