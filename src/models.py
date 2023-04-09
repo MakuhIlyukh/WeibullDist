@@ -19,6 +19,17 @@ class SoftmaxParametrization(torch.nn.Module):
         return torch.log(Y) + self.c
 
 
+class SquareParametrization(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, X):
+        return X*X
+    
+    def right_inverse(self, Y):
+        return torch.sqrt(Y)
+
+
 class WM(torch.nn.Module):
     def __init__(self, m, k_init, lmd_init, q_init, c=0):
         super().__init__()
