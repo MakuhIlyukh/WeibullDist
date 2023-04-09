@@ -21,7 +21,7 @@ class SoftmaxParametrization(torch.nn.Module):
 
 
 class SquareParametrization(torch.nn.Module):
-    def __init__(self, eps=1e+6):
+    def __init__(self, eps=1e-6):
         super().__init__()
         # TODO: maybe it's better to cast to tensor
         self.eps = eps
@@ -41,13 +41,15 @@ class WM(torch.nn.Module):
         # TODO: strongly positive
         self.k_w = torch.nn.Parameter(
             torch.empty(m, dtype=torch.float64, requires_grad=True))
+        parametrize.register_parametrization(
+            self, 'k_w', SquareParametrization())
 
         with torch.no_grad():
             if isinstance(k_init, str) and k_init == "random":
-                self.k_w.copy_(torch.rand(
+                self.k_w = (torch.rand(
                     m, dtype=torch.float64) + 1)
             elif callable(k_init):
-                self.k_w.copy_(k_init())
+                self.k_w = (k_init())
             else:
                 raise ValueError("k_init must be callable or 'random'")
         
@@ -55,13 +57,15 @@ class WM(torch.nn.Module):
         # TODO: strongly positive
         self.lmd_w = torch.nn.Parameter(
             torch.empty(m, dtype=torch.float64, requires_grad=True))
+        parametrize.register_parametrization(
+            self, 'lmd_w', SquareParametrization())
         
         with torch.no_grad():
             if isinstance(lmd_init, str) and lmd_init == "random":
-                self.lmd_w.copy_(torch.rand(
+                self.lmd_w = (torch.rand(
                     m, dtype=torch.float64) + 1)
             elif callable(lmd_init):
-                self.lmd_w.copy_(lmd_init())
+                self.lmd_w = (lmd_init())
             else:
                 raise ValueError("lmd_init must be callable or 'random'")
         
