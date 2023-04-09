@@ -10,6 +10,7 @@ from tqdm import tqdm
 class SoftmaxParametrization(torch.nn.Module):
     def __init__(self, c=0):
         super().__init__()
+        # TODO: maybe it's better to cast to tensor 
         self.c = c
 
     def forward(self, X):
@@ -20,14 +21,16 @@ class SoftmaxParametrization(torch.nn.Module):
 
 
 class SquareParametrization(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, eps=1e+6):
         super().__init__()
+        # TODO: maybe it's better to cast to tensor
+        self.eps = eps
     
     def forward(self, X):
-        return X*X
+        return X*X + self.eps
     
     def right_inverse(self, Y):
-        return torch.sqrt(Y)
+        return torch.sqrt(Y - self.eps)
 
 
 class WM(torch.nn.Module):
