@@ -96,14 +96,12 @@ class WM(torch.nn.Module):
         self.m = m
     
     def forward(self, x):
-        s = torch.zeros((x.shape[0], 1), dtype=torch.float64)
         with parametrize.cached():
             # TODO: maybe it's better to not use for loop
-            for j in range(self.m):
-                # TODO: maybe it's better to create variable 1_div_lmd
-                x_div_lmd = x / self.lmd_w[j]
-                s += (self.q_w[j]
-                      * self.k_w[j] / self.lmd_w[j]
-                      * x_div_lmd**(self.k_w[j] - 1)
-                      * torch.exp(-(x_div_lmd)**self.k_w[j]))
-        return s
+            # TODO: maybe it's better to create variable 1_div_lmd
+            x_div_lmd = x / self.lmd_w
+            s = (self.q_w
+                    * self.k_w / self.lmd_w
+                    * x_div_lmd**(self.k_w - 1)
+                    * torch.exp(-(x_div_lmd)**self.k_w))
+        return torch.sum(s, axis=1, keepdim=True)
