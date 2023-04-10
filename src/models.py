@@ -97,7 +97,6 @@ class WM(torch.nn.Module):
     
     def forward(self, x):
         with parametrize.cached():
-            # TODO: maybe it's better to not use for loop
             # TODO: maybe it's better to create variable 1_div_lmd
             x_div_lmd = x / self.lmd_w
             s = (self.q_w
