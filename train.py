@@ -3,6 +3,7 @@ from os.path import join as joinp
 
 import torch
 from torch import nn
+from torchmetrics import R2Score
 from tqdm import tqdm
 from sklearn.preprocessing import MinMaxScaler
 import mlflow
@@ -31,14 +32,17 @@ LR = 10**(-1)
 N_EPOCHS = 5000
 WEIGHT_DECAY = 0.0
 LOSS_PREFIX = "NLL"
+METRIC_PREFIX = "R2"
 PLOT_EVERY = 500000
 
 
-def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn,
-          loss_prefix="", plot_every=100):
+def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn, metric_fn,
+          loss_prefix="", metric_prefix="", plot_every=100):
     # loss_name is used for logging
     loss_name = loss_prefix + "_loss"
+    metric_name = metric_prefix + "_score"
     X_numpy = X
+    y_true = torch.from_numpy(wm_sampler.pdf(X_numpy))
     X = torch.from_numpy(X)
     # TODO: add batch splitting
     # TODO: add stop on plateu
@@ -50,8 +54,12 @@ def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn,
         loss.backward()
         optimizer.step()
 
+        with torch.no_grad():
+            metric_score = metric_fn(dens, y_true).item()
+
         tqdm_bar.set_postfix({
-            loss_name: loss.item()})
+            loss_name: loss.item(),
+            metric_name: metric_score})
 
         if epoch % plot_every == 0:
             fig, ax = plt.subplots()
@@ -67,7 +75,10 @@ def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn,
             fig.savefig(joinp(TRAIN_PLOTS_PATH, f"wm_plot_{epoch}.png"))
             plt.close(fig)  # ???: может лучше очищать фигуру и создавать не в цикле?
         
-        mlflow.log_metric(loss_name, loss.item(), step=epoch)
+        mlflow.log_metrics({
+            loss_name: loss.item(),
+            metric_name: metric_score
+        }, step=epoch)
 
 
 if __name__ == '__main__':
@@ -122,8 +133,9 @@ if __name__ == '__main__':
 
     # training
     loss_fn = nll
-    train(X_proc, wm_sampler, wm, N_EPOCHS, optimizer, loss_fn,
-          loss_prefix=LOSS_PREFIX, plot_every=PLOT_EVERY)
+    metric_fn = R2Score()
+    train(X_proc, wm_sampler, wm, N_EPOCHS, optimizer, loss_fn, metric_fn,
+          loss_prefix=LOSS_PREFIX, metric_prefix=METRIC_PREFIX, plot_every=PLOT_EVERY)
 
     # TODO: artifacts logging
     # TODO: Обрати внимание на то, чтобы папка plots очищалась
