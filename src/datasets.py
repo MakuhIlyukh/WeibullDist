@@ -51,13 +51,11 @@ class WeibullMixtureSampler:
 
     def pdf(self, x):
         """ Only for non-negative values. """
-        s = np.zeros((x.shape[0], 1), dtype=np.float64)
-        for j in range(self._m):
-            s += (self._q[j]
-                  * self._k[j] / self._lmd[j]
-                  * (x / self._lmd[j])**(self._k[j]-1)
-                  * np.exp(-(x / self._lmd[j])**self._k[j]))
-        return s
+        s = (self._q
+                * self._k / self._lmd
+                * (x / self._lmd)**(self._k-1)
+                * np.exp(-(x / self._lmd)**self._k))
+        return s.sum(axis=1).reshape(-1, 1)
     
     @property
     def m(self):
