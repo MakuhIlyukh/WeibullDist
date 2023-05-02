@@ -171,7 +171,10 @@ class EM_WM_TORCH(nn.Module):
                     * self.k_w / self.lmd_w
                     * x_div_lmd**(self.k_w - 1)
                     * torch.exp(-(x_div_lmd)**self.k_w))
-        return s        
+        return s
+
+    def pdf(self, X):
+        return self.cond_probs(X).sum(axis=1, keepdim=True)
     
     def fit(self, X, max_iter, max_newton_iter):
         with torch.no_grad():
@@ -183,6 +186,7 @@ class EM_WM_TORCH(nn.Module):
             while t < max_iter and not converged:
                 # NOTE: порядок важен
                 cprobs = self.cond_probs(X)
+                # TODO: Должно ли присутствовать q?
                 cpz = cprobs / torch.sum(cprobs, axis=1, keepdim=True)
                 cpz_sum = torch.sum(cpz, axis=0)
                 # ???: нет ли опечатки в формуле???
@@ -216,3 +220,157 @@ class EM_WM_TORCH(nn.Module):
                 converged = False
                 bar.update(1)
             bar.close()
+
+
+class Optimized_WM:
+    def __init__(self, m, k_init, lmd_init, q_init, c=0):
+        super().__init__()
+
+        # shape parameters
+        # TODO: strongly positive
+        self.k_w = torch.nn.Parameter(
+            torch.empty(m, dtype=torch.float64, requires_grad=True))
+        parametrize.register_parametrization(
+            self, 'k_w', SquareParametrization())
+
+        with torch.no_grad():
+            if isinstance(k_init, str) and k_init == "random":
+                self.k_w = (torch.rand(
+                    m, dtype=torch.float64) + 1)
+            elif callable(k_init):
+                self.k_w = (k_init())
+            else:
+                raise ValueError("k_init must be callable or 'random'")
+        
+        # scale parameters
+        # TODO: strongly positive
+        self.lmd_w = torch.nn.Parameter(
+            torch.empty(m, dtype=torch.float64, requires_grad=True))
+        parametrize.register_parametrization(
+            self, 'lmd_w', SquareParametrization())
+        
+        with torch.no_grad():
+            if isinstance(lmd_init, str) and lmd_init == "random":
+                self.lmd_w = (torch.rand(
+                    m, dtype=torch.float64) + 1)
+            elif callable(lmd_init):
+                self.lmd_w = (lmd_init())
+            else:
+                raise ValueError("lmd_init must be callable or 'random'")
+        
+        # components probs
+        self.q_w = torch.nn.Parameter(
+            torch.empty(m, dtype=torch.float64, requires_grad=True))
+        parametrize.register_parametrization(
+            self, 'q_w', SoftmaxParametrization(c))
+        
+        with torch.no_grad():
+            if isinstance(q_init, str):
+                if q_init == 'dirichlet':
+                    self.q_w = torch.distributions.Dirichlet(
+                            concentration=torch.full(
+                                (m,), 1.0, dtype=torch.float64)
+                        ).sample()
+                elif q_init == "1/m":
+                    self.q_w = torch.full(
+                        (m,), 1/m, dtype=torch.float64)
+                else:
+                    raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
+            elif callable(q_init):
+                self.q_w = q_init()
+            else:
+                raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
+        
+        # constants
+        self.m = m
+    
+    def forward(self, x):
+        with parametrize.cached():
+            x_div_lmd = x / self.lmd_w
+            pow_k = torch.exp(self.k_w*torch.log(x_div_lmd))
+            s = ((self.q_w * self.k_w)  # brackets are important
+                    / x
+                    * pow_k
+                    * torch.exp(-pow_k))
+        return torch.sum(s, axis=1, keepdim=True)
+
+
+class Manual_GD_WM:
+    def __init__(self, m, k_init, lmd_init, q_init, c=0, eps=1e-6):
+        super().__init__()
+
+        # shape parameters
+        self.k_w = torch.nn.Parameter(
+            torch.empty(m, dtype=torch.float64, requires_grad=True))
+
+        with torch.no_grad():
+            if isinstance(k_init, str) and k_init == "random":
+                self.k_w.copy_(torch.rand(
+                    m, dtype=torch.float64) + 1)
+            elif callable(k_init):
+                self.k_w.copy_(k_init())
+            else:
+                raise ValueError("k_init must be callable or 'random'")
+            self.k_w.copy_(torch.sqrt(self.k_w - eps))
+        
+        # scale parameters
+        self.lmd_w = torch.nn.Parameter(
+            torch.empty(m, dtype=torch.float64, requires_grad=True))
+        
+        with torch.no_grad():
+            if isinstance(lmd_init, str) and lmd_init == "random":
+                self.lmd_w.copy_(torch.rand(
+                    m, dtype=torch.float64) + 1)
+            elif callable(lmd_init):
+                self.lmd_w.copy_(lmd_init())
+            else:
+                raise ValueError("lmd_init must be callable or 'random'")
+            self.lmd_w.copy_(torch.sqrt(self.lmd_w - eps))
+        
+        # components probs
+        self.q_w = torch.nn.Parameter(
+            torch.empty(m, dtype=torch.float64, requires_grad=True))
+        
+        with torch.no_grad():
+            if isinstance(q_init, str):
+                if q_init == 'dirichlet':
+                    self.q_w.copy_(torch.distributions.Dirichlet(
+                            concentration=torch.full(
+                                (m,), 1.0, dtype=torch.float64)
+                        ).sample())
+                elif q_init == "1/m":
+                    self.q_w.copy_(torch.full(
+                        (m,), 1/m, dtype=torch.float64))
+                else:
+                    raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
+            elif callable(q_init):
+                self.q_w.copy_(q_init())
+            else:
+                raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
+            self.q_w.copy_(torch.log(self.q_w) + c)
+
+        # constants
+        self.m = m
+        self.c = c
+        self.eps = eps
+
+    def compute_grad(self, x):
+        with torch.no_grad():
+            q = torch.softmax(self.q_w)
+            k = self.k_w * self.k_w + self.eps
+            l = self.lmd_w * self.lmd_w + self.eps
+
+            x_div_l = x / l
+            log_pow_k  = torch.log(x_div_l)*k
+            pow_k = torch.exp(log_pow_k) 
+            expn = torch.exp(-pow_k)
+            expn_pow_div = expn * pow_k / x
+            components = expn_pow_div * (k * q)  # braces are important!
+            pdf = components.sum(axis=1, keepdim=True)
+            q_grad = expn_pow_div * (-k) / pdf  # braces are important!
+            pow_k_m_1 = pow_k - 1
+            l_grad = q_grad*pow_k_m_1 * (k * q / l)  # braces are important!
+            k_grad = expn_pow_div * q * (log_pow_k * pow_k_m_1 - 1) / pdf
+
+            q_jac = -torch.outer(q, q) + torch.diag(q)
+            return q_grad.mean(axis=0) @ q_jac, k_grad.mean(axis=0)*2*self.k_w, l_grad.mean(axis=0)*2*self.lmd_w
