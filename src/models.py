@@ -222,7 +222,7 @@ class EM_WM_TORCH(nn.Module):
             bar.close()
 
 
-class Optimized_WM:
+class Optimized_WM(torch.nn.Module):
     def __init__(self, m, k_init, lmd_init, q_init, c=0):
         super().__init__()
 
