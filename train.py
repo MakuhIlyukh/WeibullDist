@@ -16,7 +16,7 @@ from src.plotting import (
     hist_plot, pdf_plot)
 from src.utils import (
     set_commit_tag, del_folder_content)
-from src.models import WM
+from src.models import WM, Optimized_WM
 from src.losses import nll
 # from src.initializers import KMeansInitializer
 from config import (
@@ -28,12 +28,13 @@ from config import (
 
 
 TRAIN_SEED = 107
-LR = 10**(-1)
-N_EPOCHS = 100
+LR = 10**(-2)
+N_EPOCHS = 5000
 WEIGHT_DECAY = 0.0
 LOSS_PREFIX = "NLL"
 METRIC_PREFIX = "R2"
 PLOT_EVERY = 500000
+BATCH_SIZE = 0.2
 
 
 def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn, metric_fn,
@@ -54,6 +55,7 @@ def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn, metric_fn,
         raise ValueError("batch_size must be int or float <= 1.0")
     tqdm_bar = tqdm(range(n_epochs))
     for epoch in tqdm_bar:
+        wm.train()
         for batch_start in range(0, X_numpy.shape[0], batch_size):
             optimizer.zero_grad()
             dens = wm(X[batch_start : batch_start + batch_size])
@@ -61,7 +63,7 @@ def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn, metric_fn,
             loss.backward()
             optimizer.step()
 
-        # ???: Need to switch to eval mode?
+        wm.eval()
         with torch.no_grad():
             dens = wm(X)
             loss = loss_fn(dens)
@@ -102,7 +104,8 @@ if __name__ == '__main__':
         "LR": LR,
         "N_EPOCHS": N_EPOCHS,
         "WEIGHT_DECAY": WEIGHT_DECAY,
-        "LOSS": LOSS_PREFIX})
+        "LOSS": LOSS_PREFIX,
+        "BATCH_SIZE": BATCH_SIZE})
     # commit
     set_commit_tag()
     # tag
@@ -124,11 +127,12 @@ if __name__ == '__main__':
     m = wm_sampler.m
 
     # creating a model
-    wm = WM(
+    wm = Optimized_WM(
         m,
         k_init="random",
         lmd_init="random",
         q_init="1/m")
+    mlflow.log_param("ALGORITHM", wm.__class__)
 
     # choosing an optimizer
     # TODO: add lr sheduler
@@ -146,7 +150,7 @@ if __name__ == '__main__':
     metric_fn = R2Score()
     train(X_proc, wm_sampler, wm, N_EPOCHS, optimizer, loss_fn, metric_fn,
           loss_prefix=LOSS_PREFIX, metric_prefix=METRIC_PREFIX, plot_every=PLOT_EVERY,
-          batch_size=0.2)
+          batch_size=BATCH_SIZE)
 
     # TODO: artifacts logging
     # TODO: Обрати внимание на то, чтобы папка plots очищалась
