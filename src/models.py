@@ -295,7 +295,7 @@ class Optimized_WM(torch.nn.Module):
         return torch.sum(s, axis=1, keepdim=True)
 
 
-class Manual_GD_WM:
+class Manual_GD_WM(torch.nn.Module):
     def __init__(self, m, k_init, lmd_init, q_init, c=0, eps=1e-6):
         super().__init__()
 
