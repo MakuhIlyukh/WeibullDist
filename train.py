@@ -29,7 +29,7 @@ from config import (
 
 TRAIN_SEED = 107
 LR = 10**(-1)
-N_EPOCHS = 5000
+N_EPOCHS = 100
 WEIGHT_DECAY = 0.0
 LOSS_PREFIX = "NLL"
 METRIC_PREFIX = "R2"
@@ -37,7 +37,7 @@ PLOT_EVERY = 500000
 
 
 def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn, metric_fn,
-          loss_prefix="", metric_prefix="", plot_every=100):
+          batch_size=1.0, loss_prefix="", metric_prefix="", plot_every=100):
     # loss_name is used for logging
     loss_name = loss_prefix + "_loss"
     metric_name = metric_prefix + "_score"
@@ -46,15 +46,25 @@ def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn, metric_fn,
     X = torch.from_numpy(X)
     # TODO: add batch splitting
     # TODO: add stop on plateu
+    if isinstance(batch_size, float):
+        batch_size = int(X_numpy.shape[0] * batch_size)
+    elif isinstance(batch_size, int):
+        pass
+    else:
+        raise ValueError("batch_size must be int or float <= 1.0")
     tqdm_bar = tqdm(range(n_epochs))
     for epoch in tqdm_bar:
-        optimizer.zero_grad()
-        dens = wm(X)
-        loss = loss_fn(dens)
-        loss.backward()
-        optimizer.step()
+        for batch_start in range(0, X_numpy.shape[0], batch_size):
+            optimizer.zero_grad()
+            dens = wm(X[batch_start : batch_start + batch_size])
+            loss = loss_fn(dens)
+            loss.backward()
+            optimizer.step()
 
+        # ???: Need to switch to eval mode?
         with torch.no_grad():
+            dens = wm(X)
+            loss = loss_fn(dens)
             metric_score = metric_fn(dens, y_true).item()
 
         tqdm_bar.set_postfix({
@@ -135,7 +145,8 @@ if __name__ == '__main__':
     loss_fn = nll
     metric_fn = R2Score()
     train(X_proc, wm_sampler, wm, N_EPOCHS, optimizer, loss_fn, metric_fn,
-          loss_prefix=LOSS_PREFIX, metric_prefix=METRIC_PREFIX, plot_every=PLOT_EVERY)
+          loss_prefix=LOSS_PREFIX, metric_prefix=METRIC_PREFIX, plot_every=PLOT_EVERY,
+          batch_size=0.2)
 
     # TODO: artifacts logging
     # TODO: Обрати внимание на то, чтобы папка plots очищалась
