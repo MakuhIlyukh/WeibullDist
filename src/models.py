@@ -356,9 +356,13 @@ class Manual_GD_WM(torch.nn.Module):
 
     def compute_grad(self, x):
         with torch.no_grad():
-            q = torch.softmax(self.q_w)
-            k = self.k_w * self.k_w + self.eps
-            l = self.lmd_w * self.lmd_w + self.eps
+            q_w = self.q_w
+            k_w = self.k_w
+            lmd_w = self.lmd_w
+
+            q = nn.functional.softmax(q_w, dim=-1, dtype=torch.float64)
+            k = k_w * k_w + self.eps
+            l = lmd_w * lmd_w + self.eps
 
             x_div_l = x / l
             log_pow_k  = torch.log(x_div_l)*k
@@ -369,8 +373,21 @@ class Manual_GD_WM(torch.nn.Module):
             pdf = components.sum(axis=1, keepdim=True)
             q_grad = expn_pow_div * (-k) / pdf  # braces are important!
             pow_k_m_1 = pow_k - 1
-            l_grad = q_grad*pow_k_m_1 * (k * q / l)  # braces are important!
-            k_grad = expn_pow_div * q * (log_pow_k * pow_k_m_1 - 1) / pdf
+            l_grad = q_grad*pow_k_m_1
+            k_grad = expn_pow_div * (log_pow_k * pow_k_m_1 - 1) / pdf
 
             q_jac = -torch.outer(q, q) + torch.diag(q)
-            return q_grad.mean(axis=0) @ q_jac, k_grad.mean(axis=0)*2*self.k_w, l_grad.mean(axis=0)*2*self.lmd_w
+            return q_grad.mean(axis=0) @ q_jac, k_grad.mean(axis=0)*q*2*k_w, l_grad.mean(axis=0) * (k * q / l) * 2*lmd_w
+    
+    def forward(self, x):
+        q = nn.functional.softmax(self.q_w, dim=-1)
+        k = self.k_w * self.k_w + self.eps
+        l = self.lmd_w * self.lmd_w + self.eps
+
+        x_div_lmd = x / l
+        pow_k = torch.exp(k*torch.log(x_div_lmd))
+        s = ((q * k)  # brackets are important
+                / x
+                * pow_k
+                * torch.exp(-pow_k))
+        return torch.sum(s, axis=1, keepdim=True)
