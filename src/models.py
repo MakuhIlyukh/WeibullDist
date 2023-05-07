@@ -6,6 +6,9 @@ from torch import nn
 from torch.nn.utils import parametrize
 from tqdm import tqdm
 
+from src.initializers import (
+    k_initialize, lmd_initialize, q_initialize)
+
 
 class SoftmaxParametrization(torch.nn.Module):
     def __init__(self, c=0):
@@ -44,14 +47,7 @@ class WM(torch.nn.Module):
         parametrize.register_parametrization(
             self, 'k_w', SquareParametrization())
 
-        with torch.no_grad():
-            if isinstance(k_init, str) and k_init == "random":
-                self.k_w = (torch.rand(
-                    m, dtype=torch.float64) + 1)
-            elif callable(k_init):
-                self.k_w = (k_init())
-            else:
-                raise ValueError("k_init must be callable or 'random'")
+        self.k_w = k_initialize(m, k_init)
         
         # scale parameters
         # TODO: strongly positive
@@ -60,14 +56,7 @@ class WM(torch.nn.Module):
         parametrize.register_parametrization(
             self, 'lmd_w', SquareParametrization())
         
-        with torch.no_grad():
-            if isinstance(lmd_init, str) and lmd_init == "random":
-                self.lmd_w = (torch.rand(
-                    m, dtype=torch.float64) + 1)
-            elif callable(lmd_init):
-                self.lmd_w = (lmd_init())
-            else:
-                raise ValueError("lmd_init must be callable or 'random'")
+        self.lmd_w = lmd_initialize(m, lmd_init)
         
         # components probs
         self.q_w = torch.nn.Parameter(
@@ -75,22 +64,7 @@ class WM(torch.nn.Module):
         parametrize.register_parametrization(
             self, 'q_w', SoftmaxParametrization(c))
         
-        with torch.no_grad():
-            if isinstance(q_init, str):
-                if q_init == 'dirichlet':
-                    self.q_w = torch.distributions.Dirichlet(
-                            concentration=torch.full(
-                                (m,), 1.0, dtype=torch.float64)
-                        ).sample()
-                elif q_init == "1/m":
-                    self.q_w = torch.full(
-                        (m,), 1/m, dtype=torch.float64)
-                else:
-                    raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
-            elif callable(q_init):
-                self.q_w = q_init()
-            else:
-                raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
+        self.q_w = q_initialize(m, q_init)
         
         # constants
         self.m = m
@@ -116,49 +90,20 @@ class EM_WM_TORCH(nn.Module):
         # self.k_w = torch.nn.Parameter(
             # torch.empty(m, dtype=torch.float64, requires_grad=False))
 
-        with torch.no_grad():
-            if isinstance(k_init, str) and k_init == "random":
-                self.k_w = (torch.rand(
-                    m, dtype=torch.float64) + 1)
-            elif callable(k_init):
-                self.k_w = (k_init())
-            else:
-                raise ValueError("k_init must be callable or 'random'")
+        self.k_w = k_initialize(m, k_init)
         
         # scale parameters
         # TODO: strongly positive
         # self.lmd_w = torch.nn.Parameter(
             # torch.empty(m, dtype=torch.float64, requires_grad=False))
         
-        with torch.no_grad():
-            if isinstance(lmd_init, str) and lmd_init == "random":
-                self.lmd_w = (torch.rand(
-                    m, dtype=torch.float64) + 1)
-            elif callable(lmd_init):
-                self.lmd_w = (lmd_init())
-            else:
-                raise ValueError("lmd_init must be callable or 'random'")
+        self.lmd_w = k_initialize(m, lmd_init)
         
         # components probs
         # self.q_w = torch.nn.Parameter(
             # torch.empty(m, dtype=torch.float64, requires_grad=False))
         
-        with torch.no_grad():
-            if isinstance(q_init, str):
-                if q_init == 'dirichlet':
-                    self.q_w = torch.distributions.Dirichlet(
-                            concentration=torch.full(
-                                (m,), 1.0, dtype=torch.float64)
-                        ).sample()
-                elif q_init == "1/m":
-                    self.q_w = torch.full(
-                        (m,), 1/m, dtype=torch.float64)
-                else:
-                    raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
-            elif callable(q_init):
-                self.q_w = q_init()
-            else:
-                raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
+        self.q_w = q_initialize(m, q_init)
         
         # constants
         self.m = m
@@ -233,14 +178,7 @@ class Optimized_WM(torch.nn.Module):
         parametrize.register_parametrization(
             self, 'k_w', SquareParametrization())
 
-        with torch.no_grad():
-            if isinstance(k_init, str) and k_init == "random":
-                self.k_w = (torch.rand(
-                    m, dtype=torch.float64) + 1)
-            elif callable(k_init):
-                self.k_w = (k_init())
-            else:
-                raise ValueError("k_init must be callable or 'random'")
+        self.k_w = k_initialize(m, k_init)
         
         # scale parameters
         # TODO: strongly positive
@@ -249,14 +187,7 @@ class Optimized_WM(torch.nn.Module):
         parametrize.register_parametrization(
             self, 'lmd_w', SquareParametrization())
         
-        with torch.no_grad():
-            if isinstance(lmd_init, str) and lmd_init == "random":
-                self.lmd_w = (torch.rand(
-                    m, dtype=torch.float64) + 1)
-            elif callable(lmd_init):
-                self.lmd_w = (lmd_init())
-            else:
-                raise ValueError("lmd_init must be callable or 'random'")
+        self.lmd_w = lmd_initialize(m, lmd_init)
         
         # components probs
         self.q_w = torch.nn.Parameter(
@@ -264,22 +195,7 @@ class Optimized_WM(torch.nn.Module):
         parametrize.register_parametrization(
             self, 'q_w', SoftmaxParametrization(c))
         
-        with torch.no_grad():
-            if isinstance(q_init, str):
-                if q_init == 'dirichlet':
-                    self.q_w = torch.distributions.Dirichlet(
-                            concentration=torch.full(
-                                (m,), 1.0, dtype=torch.float64)
-                        ).sample()
-                elif q_init == "1/m":
-                    self.q_w = torch.full(
-                        (m,), 1/m, dtype=torch.float64)
-                else:
-                    raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
-            elif callable(q_init):
-                self.q_w = q_init()
-            else:
-                raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
+        self.q_w = q_initialize(m, q_init)
         
         # constants
         self.m = m
@@ -303,51 +219,19 @@ class Manual_GD_WM(torch.nn.Module):
         self.k_w = torch.nn.Parameter(
             torch.empty(m, dtype=torch.float64, requires_grad=True))
 
-        with torch.no_grad():
-            if isinstance(k_init, str) and k_init == "random":
-                self.k_w.copy_(torch.rand(
-                    m, dtype=torch.float64) + 1)
-            elif callable(k_init):
-                self.k_w.copy_(k_init())
-            else:
-                raise ValueError("k_init must be callable or 'random'")
-            self.k_w.copy_(torch.sqrt(self.k_w - eps))
+        self.k_w.copy_(k_initialize(m, k_init, manual_parametrization=True, eps=1e-6))
         
         # scale parameters
         self.lmd_w = torch.nn.Parameter(
             torch.empty(m, dtype=torch.float64, requires_grad=True))
         
-        with torch.no_grad():
-            if isinstance(lmd_init, str) and lmd_init == "random":
-                self.lmd_w.copy_(torch.rand(
-                    m, dtype=torch.float64) + 1)
-            elif callable(lmd_init):
-                self.lmd_w.copy_(lmd_init())
-            else:
-                raise ValueError("lmd_init must be callable or 'random'")
-            self.lmd_w.copy_(torch.sqrt(self.lmd_w - eps))
+        self.lmd_w.copy_(lmd_initialize(m, lmd_init, manual_parametrization=True, eps=1e-6))
         
         # components probs
         self.q_w = torch.nn.Parameter(
             torch.empty(m, dtype=torch.float64, requires_grad=True))
         
-        with torch.no_grad():
-            if isinstance(q_init, str):
-                if q_init == 'dirichlet':
-                    self.q_w.copy_(torch.distributions.Dirichlet(
-                            concentration=torch.full(
-                                (m,), 1.0, dtype=torch.float64)
-                        ).sample())
-                elif q_init == "1/m":
-                    self.q_w.copy_(torch.full(
-                        (m,), 1/m, dtype=torch.float64))
-                else:
-                    raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
-            elif callable(q_init):
-                self.q_w.copy_(q_init())
-            else:
-                raise ValueError("q_init must be 'dirchlet', '1/k' or callable")
-            self.q_w.copy_(torch.log(self.q_w) + c)
+        self.q_w.copy_(q_initialize(m, q_init, manual_parametrization=True, c=1e-6))
 
         # constants
         self.m = m
@@ -380,7 +264,7 @@ class Manual_GD_WM(torch.nn.Module):
             return q_grad.mean(axis=0) @ q_jac, k_grad.mean(axis=0)*q*2*k_w, l_grad.mean(axis=0) * (k * q / l) * 2*lmd_w
     
     def forward(self, x):
-        q = nn.functional.softmax(self.q_w, dim=-1)
+        q = nn.functional.softmax(self.q_w, dim=-1, dtype=torch.float64)
         k = self.k_w * self.k_w + self.eps
         l = self.lmd_w * self.lmd_w + self.eps
 
