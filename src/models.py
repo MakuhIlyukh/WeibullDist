@@ -166,6 +166,41 @@ class EM_WM_TORCH(nn.Module):
                 bar.update(1)
             bar.close()
     
+    def step(self, X, max_newton_iter):
+        with torch.no_grad():
+            lnX = torch.log(X)
+            n = X.shape[0]
+            cprobs = self.cond_probs(X)
+            # TODO: Должно ли присутствовать q?
+            cpz = cprobs / torch.sum(cprobs, axis=1, keepdim=True)
+            cpz_sum = torch.sum(cpz, axis=0)
+            # ???: нет ли опечатки в формуле???
+            cpz_lnX = cpz*lnX
+            A_r = torch.sum(cpz_lnX, axis=0) / cpz_sum
+            self.q_w = cpz_sum / n
+            r = 0
+            newton_converged = False
+            # ???: должна ли инициализация другими значениями, а не значениями на прошлой итерации?
+            K_r = self.k_w
+            while r < max_newton_iter and not newton_converged:
+                B_r = cpz * X**K_r
+                C_r = B_r * lnX
+                D_r = C_r * lnX
+                B_r = torch.sum(B_r, axis=0)
+                C_r = torch.sum(C_r, axis=0)
+                D_r = torch.sum(D_r, axis=0)
+                C_div_B = C_r / B_r
+                one_div_K = 1 / K_r
+                old_K_r = K_r
+                # ???: maybe better one_div_k / K_R
+                K_r = K_r + (A_r + one_div_K - C_div_B) / (one_div_K * one_div_K + D_r / B_r - C_div_B / B_r)
+                r += 1
+                # TODO: newton_convergence flag
+                newton_converged = False
+            # K_r назначается с предпоследней итерации, чтобы не перещитывать B_r
+            self.k_w = old_K_r
+            self.lmd_w = (B_r / cpz_sum)**one_div_K
+
 
 class Optimized_WM(torch.nn.Module):
     def __init__(self, m, k_init, lmd_init, q_init, c=0):
