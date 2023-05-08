@@ -110,12 +110,12 @@ class EM_WM_TORCH(nn.Module):
 
     def cond_probs(self, x):
         with parametrize.cached():
-            # TODO: maybe it's better to create variable 1_div_lmd
             x_div_lmd = x / self.lmd_w
-            s = (self.q_w
-                    * self.k_w / self.lmd_w
-                    * x_div_lmd**(self.k_w - 1)
-                    * torch.exp(-(x_div_lmd)**self.k_w))
+            pow_k = torch.exp(self.k_w*torch.log(x_div_lmd))
+            s = ((self.q_w * self.k_w)  # brackets are important
+                    / x
+                    * pow_k
+                    * torch.exp(-pow_k))
         return s
 
     def pdf(self, X):
