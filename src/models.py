@@ -82,7 +82,7 @@ class WM(torch.nn.Module):
 
 # ???: nn.Module or empty?
 class EM_WM_TORCH(nn.Module):
-    def __init__(self, m, k_init, lmd_init, q_init, c=0):
+    def __init__(self, m, k_init, lmd_init, q_init):
         super().__init__()
 
         # shape parameters
