@@ -165,7 +165,7 @@ class EM_WM_TORCH(nn.Module):
                 converged = False
                 bar.update(1)
             bar.close()
-
+    
 
 class Optimized_WM(torch.nn.Module):
     def __init__(self, m, k_init, lmd_init, q_init, c=0):
