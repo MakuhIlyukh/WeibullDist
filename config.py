@@ -1,6 +1,7 @@
 DATASETS_ARTIFACTS_PATH = "data/datasets"
 TRAINED_MODELS_PATH = "data/trained_models"
 TRAIN_PLOTS_PATH = "data/trained_models/plots"
+TRAIN_DATA_PATH = "data/trained_models/data"
 
 # tags for mlflow
 # keys

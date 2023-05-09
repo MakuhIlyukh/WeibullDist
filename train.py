@@ -1,5 +1,7 @@
 # %%
 from os.path import join as joinp
+from time import perf_counter_ns
+import pickle
 
 import torch
 from torch import nn
@@ -16,7 +18,10 @@ from src.plotting import (
     hist_plot, pdf_plot)
 from src.utils import (
     set_commit_tag, del_folder_content)
-from src.models import WM, Optimized_WM
+from src.models import WM, Optimized_WM, Manual_GD_WM
+from src.trainers import (
+    EM_Trainer, ManualGD_Trainer, OptimizedGD_Trainer
+)
 from src.losses import nll
 # from src.initializers import KMeansInitializer
 from config import (
@@ -24,73 +29,21 @@ from config import (
     TRAINED_MODELS_PATH,
     TRAIN_PLOTS_PATH,
     MODELS_TAG_KEY,
-    TRAINING_TAG_VALUE)
+    TRAINING_TAG_VALUE,
+    TRAIN_DATA_PATH)
 
 
 TRAIN_SEED = 107
-LR = 10**(-2)
-N_EPOCHS = 5000
+LR = 10**(-1)
+N_EPOCHS = 500
 WEIGHT_DECAY = 0.0
 LOSS_PREFIX = "NLL"
 METRIC_PREFIX = "R2"
 PLOT_EVERY = 500000
-BATCH_SIZE = 0.2
-
-
-def train(X, wm_sampler, wm, n_epochs, optimizer, loss_fn, metric_fn,
-          batch_size=1.0, loss_prefix="", metric_prefix="", plot_every=100):
-    # loss_name is used for logging
-    loss_name = loss_prefix + "_loss"
-    metric_name = metric_prefix + "_score"
-    X_numpy = X
-    y_true = torch.from_numpy(wm_sampler.pdf(X_numpy))
-    X = torch.from_numpy(X)
-    # TODO: add batch splitting
-    # TODO: add stop on plateu
-    if isinstance(batch_size, float):
-        batch_size = int(X_numpy.shape[0] * batch_size)
-    elif isinstance(batch_size, int):
-        pass
-    else:
-        raise ValueError("batch_size must be int or float <= 1.0")
-    tqdm_bar = tqdm(range(n_epochs))
-    for epoch in tqdm_bar:
-        wm.train()
-        for batch_start in range(0, X_numpy.shape[0], batch_size):
-            optimizer.zero_grad()
-            dens = wm(X[batch_start : batch_start + batch_size])
-            loss = loss_fn(dens)
-            loss.backward()
-            optimizer.step()
-
-        wm.eval()
-        with torch.no_grad():
-            dens = wm(X)
-            loss = loss_fn(dens)
-            metric_score = metric_fn(dens, y_true).item()
-
-        tqdm_bar.set_postfix({
-            loss_name: loss.item(),
-            metric_name: metric_score})
-
-        if epoch % plot_every == 0:
-            fig, ax = plt.subplots()
-            pdf_plot(
-                X_numpy,
-                wm_sampler.pdf(X_numpy),
-                axis=ax
-            )
-            pdf_plot(
-                X_numpy,
-                dens.detach().numpy(),
-                axis=ax)
-            fig.savefig(joinp(TRAIN_PLOTS_PATH, f"wm_plot_{epoch}.png"))
-            plt.close(fig)  # ???: может лучше очищать фигуру и создавать не в цикле?
-        
-        mlflow.log_metrics({
-            loss_name: loss.item(),
-            metric_name: metric_score
-        }, step=epoch)
+BATCH_SIZE = 1.0
+K_INIT = "random"
+LMD_INIT = "random"
+Q_INIT = "1/m"
 
 
 if __name__ == '__main__':
@@ -126,37 +79,30 @@ if __name__ == '__main__':
         X, y = load_dataset(f)
     m = wm_sampler.m
 
-    # creating a model
-    wm = Optimized_WM(
-        m,
-        k_init="random",
-        lmd_init="random",
-        q_init="1/m")
-    mlflow.log_param("ALGORITHM", wm.__class__)
-
-    # choosing an optimizer
-    # TODO: add lr sheduler
-    optimizer = torch.optim.Adam(
-        params=wm.parameters(),
-        lr=LR,
-        weight_decay=WEIGHT_DECAY)
-    mlflow.log_param("OPTIMIZER", optimizer.__class__)
-    
-    # preprocessing steps
-    X_proc = X
-
-    # training
+    # metrics and losses
     loss_fn = nll
     metric_fn = R2Score()
-    train(X_proc, wm_sampler, wm, N_EPOCHS, optimizer, loss_fn, metric_fn,
-          loss_prefix=LOSS_PREFIX, metric_prefix=METRIC_PREFIX, plot_every=PLOT_EVERY,
-          batch_size=BATCH_SIZE)
 
-    # TODO: artifacts logging
-    # TODO: Обрати внимание на то, чтобы папка plots очищалась
-    #       перед запуском, ибо иначе будут логироваться данные с прошлых
-    #       запусков. А может должна очищаться не только папка plots?
-    #       А может вообще нужно, чтобы файлы не сохранялись в папки,
-    #       а сразу заносились в mlflow runs?
+    # trainer creating
+    trainer = OptimizedGD_Trainer(
+        m, opt_name="adam", lr=LR,
+        k_init=K_INIT, lmd_init=LMD_INIT, q_init=Q_INIT,
+        loss_fn=loss_fn)
+    
+    # trainer = EM_Trainer(
+    #     m, K_INIT, LMD_INIT, Q_INIT,
+    #     max_newtone_iter=5
+    # )
+    
+    mlflow.log_param("ALGORITHM", trainer.__class__)
+
+    # training
+    res = trainer.train(
+        X=torch.from_numpy(X), y_true=torch.from_numpy(wm_sampler.pdf(X)),
+        n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, loss_fn=loss_fn, metric_fn=metric_fn,
+        loss_prefix=LOSS_PREFIX, metric_prefix=METRIC_PREFIX
+    )
+
     mlflow.log_artifact(TRAIN_PLOTS_PATH)
     # mlflow.pytorch.log_model(gm, TRMP)
+    mlflow.log_artifact(TRAIN_DATA_PATH)
