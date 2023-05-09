@@ -81,7 +81,7 @@ class WM(torch.nn.Module):
 
 
 # ???: nn.Module or empty?
-class EM_WM_TORCH(nn.Module):
+class EM_WM_TORCH:
     def __init__(self, m, k_init, lmd_init, q_init):
         super().__init__()
 
@@ -200,6 +200,9 @@ class EM_WM_TORCH(nn.Module):
             # K_r назначается с предпоследней итерации, чтобы не перещитывать B_r
             self.k_w = old_K_r
             self.lmd_w = (B_r / cpz_sum)**one_div_K
+    
+    def __call__(self, X):
+        return self.pdf(X)
 
 
 class Optimized_WM(torch.nn.Module):
