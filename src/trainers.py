@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import torch
 
 from src.models import (
-    Optimized_WM, Manual_GD_WM, EM_WM_TORCH)
+    Optimized_WM, Manual_GD_WM, EM_WM_TORCH, WM)
 
 
 def get_optimizer(opt_name):
@@ -75,6 +75,23 @@ class BaseTrainer:
             ))
 
         return numbers
+
+
+class GD_Trainer(BaseTrainer):
+    def __init__(self, m, opt_name, lr, k_init, lmd_init, q_init, loss_fn):
+        self.model = WM(
+            m=m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
+        self.optimizer = get_optimizer(opt_name)(
+            self.model.parameters(), lr=lr)
+        self.loss_fn = loss_fn
+
+    def step(self, X):
+        self.optimizer.zero_grad()
+        pdf = self.model(X)
+        loss = self.loss_fn(pdf)
+        loss.backward()
+        self.optimizer.step()
+        return pdf, loss
 
 
 class OptimizedGD_Trainer(BaseTrainer):
