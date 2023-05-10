@@ -35,9 +35,9 @@ from config import (
 
 
 # ALGORITHM = "gd"
-ALGORITHM = "opt_gd"
+# ALGORITHM = "opt_gd"
 # ALGORITHM = "manual_gd"
-# ALGORITHM = "em"
+ALGORITHM = "em"
 
 START_TRAIN_SEED = 107
 N_EPOCHS = 500
@@ -88,9 +88,11 @@ if __name__ == '__main__':
             {
                 "MAX_NEWTON_ITER": max_newtone_iter,
                 "NEWTON_TOL": newton_tol,
+                "BATCH_SIZE": batch_size
             }
-            for max_newtone_iter in [1, 2, 3, 4, 5, 10, 15, 20]
-            for newton_tol in [0.1, 0.01, 0.05]
+            for max_newtone_iter in [3, 5, 10]
+            for newton_tol in [0.01]
+            for batch_size in [1.0]
         ]
     elif ALGORITHM == "opt_gd":
         grid = [
