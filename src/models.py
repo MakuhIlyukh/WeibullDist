@@ -166,7 +166,7 @@ class EM_WM_TORCH:
                 bar.update(1)
             bar.close()
     
-    def step(self, X, max_newton_iter):
+    def step(self, X, max_newton_iter, newton_tol):
         with torch.no_grad():
             lnX = torch.log(X)
             n = X.shape[0]
@@ -196,7 +196,7 @@ class EM_WM_TORCH:
                 K_r = K_r + (A_r + one_div_K - C_div_B) / (one_div_K * one_div_K + D_r / B_r - C_div_B / B_r)
                 r += 1
                 # TODO: newton_convergence flag
-                newton_converged = False
+                newton_converged = (torch.norm((K_r - old_K_r), p=1) < newton_tol).item()
             # K_r назначается с предпоследней итерации, чтобы не перещитывать B_r
             self.k_w = old_K_r
             self.lmd_w = (B_r / cpz_sum)**one_div_K
