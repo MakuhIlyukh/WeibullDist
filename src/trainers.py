@@ -95,17 +95,20 @@ class GD_Trainer(BaseTrainer):
 
 
 class OptimizedGD_Trainer(BaseTrainer):
-    def __init__(self, m, opt_name, lr, k_init, lmd_init, q_init, loss_fn):
+    def __init__(self, m, opt_name, lr, k_init, lmd_init, q_init, loss_fn, l1_coeff=None):
         self.model = Optimized_WM(
             m=m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
         self.optimizer = get_optimizer(opt_name)(
             self.model.parameters(), lr=lr)
         self.loss_fn = loss_fn
+        self.l1_coeff = l1_coeff
 
     def step(self, X):
         self.optimizer.zero_grad()
         pdf = self.model(X)
         loss = self.loss_fn(pdf)
+        if self.l1_coeff is not None:
+            loss += self.l1_coeff * torch.norm(self.model.q_w, p=1)
         loss.backward()
         self.optimizer.step()
         return pdf, loss
