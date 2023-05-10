@@ -130,11 +130,12 @@ class ManualGD_Trainer(BaseTrainer):
 
 
 class EM_Trainer(BaseTrainer):
-    def __init__(self, m, k_init, lmd_init, q_init, max_newton_iter):
+    def __init__(self, m, k_init, lmd_init, q_init, max_newton_iter, newton_tol):
         self.model = EM_WM_TORCH(m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
         self.max_newton_iter = max_newton_iter
+        self.newton_tol = newton_tol
 
     def step(self, X):
-        self.model.step(X, max_newton_iter=self.max_newton_iter)
+        self.model.step(X, max_newton_iter=self.max_newton_iter, newton_tol=self.newton_tol)
         # TODO: return pdf and loss
         return None, None

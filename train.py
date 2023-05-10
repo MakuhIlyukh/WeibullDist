@@ -21,7 +21,7 @@ from src.utils import (
     set_commit_tag, del_folder_content)
 from src.models import WM, Optimized_WM, Manual_GD_WM
 from src.trainers import (
-    EM_Trainer, ManualGD_Trainer, OptimizedGD_Trainer
+    EM_Trainer, ManualGD_Trainer, OptimizedGD_Trainer, GD_Trainer
 )
 from src.losses import nll
 # from src.initializers import KMeansInitializer
@@ -50,11 +50,14 @@ BATCH_SIZE = 1.0
 K_INIT = "random"
 LMD_INIT = "random"
 Q_INIT = "1/m"
+MAX_NEWTON_ITER = 5
+NEWTON_TOL = 0.1
 
 
 if __name__ == '__main__':
     # clearing folders
     del_folder_content(TRAIN_PLOTS_PATH)
+    del_folder_content(TRAIN_DATA_PATH)
 
     # starting mlflow
     train_run = mlflow.start_run()
@@ -76,7 +79,9 @@ if __name__ == '__main__':
         "K_INIT": K_INIT,
         "LMD_INIT": LMD_INIT,
         "Q_INIT": Q_INIT,
-        "ALGORITHM": ALGORITHM
+        "ALGORITHM": ALGORITHM,
+        "MAX_NEWTON_ITER": MAX_NEWTON_ITER,
+        "NEWTON_TOL": NEWTON_TOL,
     })
 
     with open(joinp(DATASETS_ARTIFACTS_PATH, "num_of_datasets.json"), "r") as f:
@@ -106,19 +111,25 @@ if __name__ == '__main__':
 
         # trainer creating
         if ALGORITHM == "gd":
-            pass
+            trainer = GD_Trainer(
+                m, opt_name="adam", lr=LR,
+                k_init=K_INIT, lmd_init=LMD_INIT, q_init=Q_INIT,
+                loss_fn=loss_fn)
         elif ALGORITHM == "opt_gd":
             trainer = OptimizedGD_Trainer(
                 m, opt_name="adam", lr=LR,
                 k_init=K_INIT, lmd_init=LMD_INIT, q_init=Q_INIT,
                 loss_fn=loss_fn)
         elif ALGORITHM == "manual_gd":
-            pass
+            trainer = ManualGD_Trainer(
+                m, opt_name="adam", lr=LR,
+                k_init=K_INIT, lmd_init=LMD_INIT, q_init=Q_INIT,
+                c=0, eps=1e-6)
         elif ALGORITHM == "em":
             trainer = EM_Trainer(
                 m, K_INIT, LMD_INIT, Q_INIT,
-                max_newtone_iter=5
-            )
+                max_newton_iter=MAX_NEWTON_ITER,
+                newton_tol=NEWTON_TOL)
         else:
             raise ValueError(f"Unknown algorithm = {ALGORITHM}")
 
