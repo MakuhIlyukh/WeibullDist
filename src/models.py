@@ -257,19 +257,22 @@ class Manual_GD_WM(torch.nn.Module):
         self.k_w = torch.nn.Parameter(
             torch.empty(m, dtype=torch.float64, requires_grad=True))
 
-        self.k_w.copy_(k_initialize(m, k_init, manual_parametrization=True, eps=1e-6))
+        with torch.no_grad():
+            self.k_w.copy_(k_initialize(m, k_init, manual_parametrization=True, eps=1e-6))
         
         # scale parameters
         self.lmd_w = torch.nn.Parameter(
             torch.empty(m, dtype=torch.float64, requires_grad=True))
         
-        self.lmd_w.copy_(lmd_initialize(m, lmd_init, manual_parametrization=True, eps=1e-6))
+        with torch.no_grad():
+            self.lmd_w.copy_(lmd_initialize(m, lmd_init, manual_parametrization=True, eps=1e-6))
         
         # components probs
         self.q_w = torch.nn.Parameter(
             torch.empty(m, dtype=torch.float64, requires_grad=True))
         
-        self.q_w.copy_(q_initialize(m, q_init, manual_parametrization=True, c=1e-6))
+        with torch.no_grad():
+            self.q_w.copy_(q_initialize(m, q_init, manual_parametrization=True, c=1e-6))
 
         # constants
         self.m = m
