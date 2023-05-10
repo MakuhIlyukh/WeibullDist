@@ -21,7 +21,7 @@ from src.utils import (
     set_commit_tag, del_folder_content)
 from src.models import WM, Optimized_WM, Manual_GD_WM
 from src.trainers import (
-    EM_Trainer, ManualGD_Trainer, OptimizedGD_Trainer, GD_Trainer
+    EM_Trainer, ManualGD_Trainer, OptimizedGD_Trainer, GD_Trainer, EM_GD_Trainer
 )
 from src.losses import nll
 # from src.initializers import KMeansInitializer
@@ -35,9 +35,10 @@ from config import (
 
 
 # ALGORITHM = "gd"
-ALGORITHM = "opt_gd"
+# ALGORITHM = "opt_gd"
 # ALGORITHM = "manual_gd"
 # ALGORITHM = "em"
+ALGORITHM = "emgd"
 
 START_TRAIN_SEED = 107
 LR = 10**(-1)
@@ -46,12 +47,14 @@ WEIGHT_DECAY = 0.0
 LOSS_PREFIX = "NLL"
 METRIC_PREFIX = "R2"
 PLOT_EVERY = 500000
-BATCH_SIZE = 1.0
+BATCH_SIZE = 0.2
 K_INIT = "random"
 LMD_INIT = "random"
 Q_INIT = "1/m"
 MAX_NEWTON_ITER = 5
-NEWTON_TOL = 0.1
+NEWTON_TOL = 0.01
+OPT_NAME = "adam"
+SWITCH_ITER = 10
 
 
 if __name__ == '__main__':
@@ -82,6 +85,8 @@ if __name__ == '__main__':
         "ALGORITHM": ALGORITHM,
         "MAX_NEWTON_ITER": MAX_NEWTON_ITER,
         "NEWTON_TOL": NEWTON_TOL,
+        "OPT_NAME": OPT_NAME,
+        "SWITCH_ITER": SWITCH_ITER
     })
 
     with open(joinp(DATASETS_ARTIFACTS_PATH, "num_of_datasets.json"), "r") as f:
@@ -130,6 +135,12 @@ if __name__ == '__main__':
                 m, K_INIT, LMD_INIT, Q_INIT,
                 max_newton_iter=MAX_NEWTON_ITER,
                 newton_tol=NEWTON_TOL)
+        elif ALGORITHM == "emgd":
+            trainer = EM_GD_Trainer(
+                m, switch_iter=SWITCH_ITER,
+                k_init=K_INIT, lmd_init=LMD_INIT, q_init=Q_INIT,
+                max_newton_iter=MAX_NEWTON_ITER, newton_tol=NEWTON_TOL,
+                opt_name=OPT_NAME, lr=LR, loss_fn=loss_fn)
         else:
             raise ValueError(f"Unknown algorithm = {ALGORITHM}")
 
