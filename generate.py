@@ -27,7 +27,8 @@ if __name__ == '__main__':
         seed = START_SEED
         mlflow.log_params({
             "START_SEED": START_SEED,
-            "N": N})
+            "N": N,
+            "NUM_DATASETS": NUM_DATASETS})
         # adding tags
         mlflow.set_tag(DATASETS_TAG_KEY, GENERATION_TAG_VALUE)
         set_commit_tag()
