@@ -17,9 +17,11 @@ from config import (
     GENERATION_TAG_VALUE)
 
 
-N = 2000
-START_SEED = 909
-NUM_DATASETS = 100
+N = 250
+START_SEED = 505
+NUM_DATASETS = 300
+MIN_M = 1
+MAX_M = 4
 
 
 if __name__ == '__main__':
@@ -35,7 +37,7 @@ if __name__ == '__main__':
         # clearing folders
         del_folder_content(DAP)
         for i in tqdm(range(NUM_DATASETS)):
-            m = np.random.RandomState(seed).randint(1, 11)
+            m = np.random.RandomState(seed).randint(MIN_M, MAX_M + 1)
             # dataset generation
             rnd = np.random.RandomState(seed)
             wms = WeibullMixtureSampler(m, rnd,
