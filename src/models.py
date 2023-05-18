@@ -353,17 +353,17 @@ class LMoments:
             labels = torch.argmax(self.z, axis=1).ravel()
             s = 0
             for j in range(self.m):
-                pop = labels == j
+                pop = (labels == j)
                 s += torch.sum(
                     self.X_sorted[pop]
-                        * torch.range(0, pop.sum()).reshape((-1, 1))
-                        * self.z[pop],
+                        * self.z[pop]
+                        * torch.arange(0, pop.sum()).reshape(-1, 1),
                     dim=0)
             m1 = (self.z * self.X_sorted).sum(axis=0) / z_sum
             m2 = (2 * s) / (z_sum*(z_sum - 1)) - m1
             self.k_w = torch.log(torch.tensor(2.0)) / torch.log(1 - m2 / m1)
             self.lmd_w = m1 / torch.exp(torch.lgamma(1/self.k_w + 1))
-            cond_probs = self.cond_probs(X_sorted)
+            cond_probs = self.cond_probs(X)
             self.z = cond_probs / torch.sum(cond_probs, axis=1, keepdim=True)
 
     def cond_probs(self, x):
@@ -383,4 +383,7 @@ class LMoments:
         self.X_sorted, self.inds = torch.sort(X, axis=0)
         self.inds = self.inds.ravel()
         self.inv_inds = torch.argsort(self.inds)
-        self.z = torch.distributions.Dirichlet(torch.tensor([1.0]*self.m)).sample((X.shape[0],))    
+        self.z = torch.distributions.Dirichlet(torch.tensor([1.0]*self.m)).sample((X.shape[0],))
+
+    def __call__(self, X):
+        return self.pdf(X)    
