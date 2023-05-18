@@ -21,7 +21,7 @@ from src.utils import (
     set_commit_tag, del_folder_content)
 from src.models import WM, Optimized_WM, Manual_GD_WM
 from src.trainers import (
-    EM_Trainer, ManualGD_Trainer, OptimizedGD_Trainer, GD_Trainer, EM_GD_Trainer
+    EM_Trainer, ManualGD_Trainer, OptimizedGD_Trainer, GD_Trainer, EM_GD_Trainer, LMoments_Trainer
 )
 from src.losses import nll
 # from src.initializers import KMeansInitializer
@@ -141,6 +141,10 @@ if __name__ == '__main__':
                 k_init=K_INIT, lmd_init=LMD_INIT, q_init=Q_INIT,
                 max_newton_iter=MAX_NEWTON_ITER, newton_tol=NEWTON_TOL,
                 opt_name=OPT_NAME, lr=LR, loss_fn=loss_fn)
+        elif ALGORITHM == "lmoments":
+            trainer = LMoments_Trainer(
+                m, K_INIT, LMD_INIT, Q_INIT
+            )
         else:
             raise ValueError(f"Unknown algorithm = {ALGORITHM}")
 
