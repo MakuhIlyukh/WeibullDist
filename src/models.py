@@ -316,3 +316,71 @@ class Manual_GD_WM(torch.nn.Module):
                 * pow_k
                 * torch.exp(-pow_k))
         return torch.sum(s, axis=1, keepdim=True)
+
+
+class LMoments:
+    def __init__(self, m, k_init, lmd_init, q_init):
+        super().__init__()
+
+        # shape parameters
+        # TODO: strongly positive
+        # self.k_w = torch.nn.Parameter(
+            # torch.empty(m, dtype=torch.float64, requires_grad=False))
+
+        self.k_w = k_initialize(m, k_init)
+        
+        # scale parameters
+        # TODO: strongly positive
+        # self.lmd_w = torch.nn.Parameter(
+            # torch.empty(m, dtype=torch.float64, requires_grad=False))
+        
+        self.lmd_w = k_initialize(m, lmd_init)
+        
+        # components probs
+        # self.q_w = torch.nn.Parameter(
+            # torch.empty(m, dtype=torch.float64, requires_grad=False))
+        
+        self.q_w = q_initialize(m, q_init)
+        
+        # constants
+        self.m = m
+    
+    def step(self, X):
+        with torch.no_grad():
+            z_sum = self.z.sum(axis=0)
+            # ???: будет ли через сто итераций сумма равняться 1?
+            self.q_w = z_sum / X.shape[0]
+            labels = torch.argmax(self.z, axis=1).ravel()
+            s = 0
+            for j in range(self.m):
+                pop = labels == j
+                s += torch.sum(
+                    self.X_sorted[pop]
+                        * torch.range(0, pop.sum()).reshape((-1, 1))
+                        * self.z[pop],
+                    dim=0)
+            m1 = (self.z * self.X_sorted).sum(axis=0) / z_sum
+            m2 = (2 * s) / (z_sum*(z_sum - 1)) - m1
+            self.k_w = torch.log(torch.tensor(2.0)) / torch.log(1 - m2 / m1)
+            self.lmd_w = m1 / torch.exp(torch.lgamma(1/self.k_w + 1))
+            cond_probs = self.cond_probs(X_sorted)
+            self.z = cond_probs / torch.sum(cond_probs, axis=1, keepdim=True)
+
+    def cond_probs(self, x):
+        with parametrize.cached():
+            x_div_lmd = x / self.lmd_w
+            pow_k = torch.exp(self.k_w*torch.log(x_div_lmd))
+            s = ((self.q_w * self.k_w)  # brackets are important
+                    / x
+                    * pow_k
+                    * torch.exp(-pow_k))
+        return s
+
+    def pdf(self, X):
+        return self.cond_probs(X).sum(axis=1, keepdim=True)
+
+    def train_init(self, X):
+        self.X_sorted, self.inds = torch.sort(X, axis=0)
+        self.inds = self.inds.ravel()
+        self.inv_inds = torch.argsort(self.inds)
+        self.z = torch.distributions.Dirichlet(torch.tensor([1.0]*self.m)).sample((X.shape[0],))    
