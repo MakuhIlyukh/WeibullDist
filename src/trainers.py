@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import torch
 
 from src.models import (
-    Optimized_WM, Manual_GD_WM, EM_WM_TORCH, WM)
+    Optimized_WM, Manual_GD_WM, EM_WM_TORCH, WM, LMoments)
 
 
 def get_optimizer(opt_name):
@@ -181,4 +181,20 @@ class EM_GD_Trainer(BaseTrainer):
                 self.gd_model.k_w = self.em_model.k_w
                 self.gd_model.q_w = self.em_model.q_w
                 self.gd_model.lmd_w = self.em_model.lmd_w
+        return None, None
+
+
+class LMoments_Trainer(BaseTrainer):
+    def __init__(self, m, k_init, lmd_init, q_init):
+        self.model = LMoments(m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
+
+    def train(self, X, y_true, n_epochs, batch_size,
+              loss_fn, metric_fn, loss_prefix, metric_prefix):
+        self.model.train_init(X)
+        super().train(X, y_true, n_epochs, batch_size,
+                      loss_fn, metric_fn, loss_prefix, metric_prefix)
+
+    def step(self, X):
+        self.model.step(X)
+        # TODO: return pdf and loss
         return None, None
