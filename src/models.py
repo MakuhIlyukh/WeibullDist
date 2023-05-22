@@ -344,26 +344,35 @@ class LMoments:
         
         # constants
         self.m = m
-    
+
     def step(self, X):
         with torch.no_grad():
             z_sum = self.z.sum(axis=0)
-            # ???: будет ли через сто итераций сумма равняться 1?
-            self.q_w = z_sum / X.shape[0]
+            m1 = ((self.X_sorted*self.z).sum(axis=0)
+                  / z_sum)
             labels = torch.argmax(self.z, axis=1).ravel()
-            s = 0
+            self.q_w = z_sum / X.shape[0]
+            m2 = torch.zeros(self.m)
             for j in range(self.m):
                 pop = (labels == j)
-                s += torch.sum(
-                    self.X_sorted[pop]
-                        * self.z[pop]
-                        * torch.arange(0, pop.sum()).reshape(-1, 1),
-                    dim=0)
-            m1 = (self.z * self.X_sorted).sum(axis=0) / z_sum
-            m2 = (2 * s) / (z_sum*(z_sum - 1)) - m1
-            self.k_w = torch.log(torch.tensor(2.0)) / torch.log(1 - m2 / m1)
-            self.lmd_w = m1 / torch.exp(torch.lgamma(1/self.k_w + 1))
-            cond_probs = self.cond_probs(X)
+                pop_len = pop.sum()
+                m2[j] = (
+                    2
+                    * torch.sum(
+                        self.X_sorted[pop].ravel()
+                        * torch.arange(0, pop_len)
+                        # * self.z[pop, j]
+                    )
+                    / pop_len / (pop_len - 1)
+                    # / self.z[:, j].sum(axis=0)
+                    # / (self.z[:, j].sum(axis=0) - 1)
+                    - m1[j]
+                )
+
+                if not (torch.isnan(m1[j]).item() or torch.isnan(m2[j]).item()):
+                    self.k_w[j] = - torch.log(torch.tensor(2.0)) / torch.log(1 - m2[j] / m1[j])
+                    self.lmd_w[j] = m1[j] / torch.exp(torch.lgamma(1/self.k_w[j] + 1))
+            cond_probs = self.cond_probs(self.X_sorted)
             self.z = cond_probs / torch.sum(cond_probs, axis=1, keepdim=True)
 
     def cond_probs(self, x):
