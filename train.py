@@ -21,7 +21,7 @@ from src.utils import (
     set_commit_tag, del_folder_content)
 from src.models import WM, Optimized_WM, Manual_GD_WM
 from src.trainers import (
-    EM_Trainer, ManualGD_Trainer, OptimizedGD_Trainer, GD_Trainer, EM_GD_Trainer, LMoments_Trainer
+    EM_Trainer, ManualGD_Trainer, Moments_EM_Trainer, Moments_GD_Trainer, Moments_Trainer, OptimizedGD_Trainer, GD_Trainer, EM_GD_Trainer, LMoments_Trainer
 )
 from src.losses import nll
 # from src.initializers import KMeansInitializer
@@ -38,23 +38,27 @@ from config import (
 # ALGORITHM = "opt_gd"
 # ALGORITHM = "manual_gd"
 # ALGORITHM = "em"
-ALGORITHM = "emgd"
+# ALGORITHM = "emgd"
+ALGORITHM = "lmoments"
+# ALGORITHM = "moments"
+# ALGORITHM = "moments_gd"
+# ALGORITHM = "moments_em"
 
 START_TRAIN_SEED = 107
-LR = 10**(-1)
-N_EPOCHS = 500
+LR = 2.27*10**(-1)
+N_EPOCHS = 200
 WEIGHT_DECAY = 0.0
 LOSS_PREFIX = "NLL"
 METRIC_PREFIX = "R2"
 PLOT_EVERY = 500000
-BATCH_SIZE = 0.2
+BATCH_SIZE = 1.0
 K_INIT = "random"
 LMD_INIT = "random"
 Q_INIT = "1/m"
 MAX_NEWTON_ITER = 5
 NEWTON_TOL = 0.01
 OPT_NAME = "adam"
-SWITCH_ITER = 10
+SWITCH_ITER = 2
 
 
 if __name__ == '__main__':
@@ -143,8 +147,20 @@ if __name__ == '__main__':
                 opt_name=OPT_NAME, lr=LR, loss_fn=loss_fn)
         elif ALGORITHM == "lmoments":
             trainer = LMoments_Trainer(
-                m, K_INIT, LMD_INIT, Q_INIT
-            )
+                m, K_INIT, LMD_INIT, Q_INIT)
+        elif ALGORITHM == "moments":
+            trainer = Moments_Trainer(
+                m, K_INIT, LMD_INIT, Q_INIT)
+        elif ALGORITHM == "moments_gd":
+            trainer = Moments_GD_Trainer(
+                m, switch_iter=SWITCH_ITER,
+                k_init=K_INIT, lmd_init=LMD_INIT, q_init=Q_INIT,
+                opt_name=OPT_NAME, lr=LR, loss_fn=loss_fn)
+        elif ALGORITHM == "moments_em":
+            trainer = Moments_EM_Trainer(
+                m, switch_iter=SWITCH_ITER,
+                k_init=K_INIT, lmd_init=LMD_INIT, q_init=Q_INIT,
+                max_newton_iter=MAX_NEWTON_ITER, newton_tol=NEWTON_TOL)
         else:
             raise ValueError(f"Unknown algorithm = {ALGORITHM}")
 

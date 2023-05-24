@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import torch
 
 from src.models import (
-    Optimized_WM, Manual_GD_WM, EM_WM_TORCH, WM, LMoments)
+    Moments, Optimized_WM, Manual_GD_WM, EM_WM_TORCH, WM, LMoments)
 
 
 def get_optimizer(opt_name):
@@ -191,10 +191,109 @@ class LMoments_Trainer(BaseTrainer):
     def train(self, X, y_true, n_epochs, batch_size,
               loss_fn, metric_fn, loss_prefix, metric_prefix):
         self.model.train_init(X)
-        super().train(X, y_true, n_epochs, batch_size,
+        return super().train(X, y_true, n_epochs, batch_size,
                       loss_fn, metric_fn, loss_prefix, metric_prefix)
 
     def step(self, X):
         self.model.step(X)
         # TODO: return pdf and loss
+        return None, None
+
+
+class Moments_Trainer(BaseTrainer):
+    def __init__(self, m, k_init, lmd_init, q_init):
+        self.model = Moments(m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
+
+    def train(self, X, y_true, n_epochs, batch_size,
+              loss_fn, metric_fn, loss_prefix, metric_prefix):
+        self.model.train_init(X)
+        return super().train(X, y_true, n_epochs, batch_size,
+                      loss_fn, metric_fn, loss_prefix, metric_prefix)
+
+    def step(self, X):
+        self.model.step(X)
+        # TODO: return pdf and loss
+        return None, None
+
+
+class Moments_GD_Trainer(BaseTrainer):
+    def __init__(self, m, switch_iter, k_init, lmd_init, q_init, opt_name, lr, loss_fn):
+        self.moments_model = Moments(
+            m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
+        self.gd_model = Optimized_WM(
+            m=m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
+        self.optimizer = get_optimizer(opt_name)(
+            self.gd_model.parameters(), lr=lr)
+        self.switch_iter = switch_iter
+        self.curr_iter = 0
+        self.loss_fn = loss_fn
+    
+    @property
+    def model(self):
+        if self.curr_iter < self.switch_iter:
+            return self.moments_model
+        else:
+            return self.gd_model
+        
+    def train(self, X, y_true, n_epochs, batch_size,
+              loss_fn, metric_fn, loss_prefix, metric_prefix):
+        self.moments_model.train_init(X)
+        return super().train(X, y_true, n_epochs, batch_size,
+                      loss_fn, metric_fn, loss_prefix, metric_prefix)
+
+    def step(self, X):
+        if self.curr_iter < self.switch_iter:
+            self.moments_model.step(X)
+        else:
+            self.optimizer.zero_grad()
+            pdf = self.model(X)
+            loss = self.loss_fn(pdf)
+            loss.backward()
+            self.optimizer.step()
+        
+        self.curr_iter += 1
+        if self.curr_iter == self.switch_iter:
+            with torch.no_grad():
+                self.gd_model.k_w = self.moments_model.k_w
+                self.gd_model.q_w = self.moments_model.q_w
+                self.gd_model.lmd_w = self.moments_model.lmd_w
+        return None, None
+
+
+class Moments_EM_Trainer(BaseTrainer):
+    def __init__(self, m, switch_iter, k_init, lmd_init, q_init, max_newton_iter, newton_tol):
+        self.moments_model = Moments(
+            m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
+        self.em_model = EM_WM_TORCH(
+            m, k_init=k_init, lmd_init=lmd_init, q_init=q_init)
+        self.switch_iter = switch_iter
+        self.curr_iter = 0
+        self.max_newton_iter = max_newton_iter
+        self.newton_tol = newton_tol
+    
+    @property
+    def model(self):
+        if self.curr_iter < self.switch_iter:
+            return self.moments_model
+        else:
+            return self.em_model
+        
+    def train(self, X, y_true, n_epochs, batch_size,
+              loss_fn, metric_fn, loss_prefix, metric_prefix):
+        self.moments_model.train_init(X)
+        return super().train(X, y_true, n_epochs, batch_size,
+                      loss_fn, metric_fn, loss_prefix, metric_prefix)
+
+    def step(self, X):
+        if self.curr_iter < self.switch_iter:
+            self.moments_model.step(X)
+        else:
+            self.em_model.step(X, max_newton_iter=self.max_newton_iter, newton_tol=self.newton_tol)
+        
+        self.curr_iter += 1
+        if self.curr_iter == self.switch_iter:
+            with torch.no_grad():
+                self.em_model.k_w = self.moments_model.k_w
+                self.em_model.q_w = self.moments_model.q_w
+                self.em_model.lmd_w = self.moments_model.lmd_w
         return None, None
