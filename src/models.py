@@ -354,30 +354,20 @@ class LMoments:
                   / z_sum)
             labels = torch.argmax(self.z, axis=1).ravel()
             self.q_w = z_sum / X.shape[0]
-            m2 = torch.zeros(self.m)
-            for j in range(self.m):
-                pop = (labels == j)
-                pop_len = pop.sum()
-                m2[j] = (
-                    2
-                    * torch.sum(
-                        self.X_sorted[pop].ravel()
-                        # self.X_sorted.ravel()
-                        * torch.arange(0, pop_len)
-                        # * torch.arange(0, self.X_sorted.shape[0])
-                        # * self.z[:, j]
-                        # * self.Z[:, j]
-                        * self.z[pop, j]
-                    )
-                    # / pop_len / (pop_len - 1)
-                    / self.z[:, j].sum(axis=0)
-                    / (self.z[:, j].sum(axis=0) - 1)
-                    - m1[j]
+            m2 = (
+                2
+                * torch.sum(
+                    self.X_sorted
+                    * self.z
+                    * (torch.cumsum(self.z, dim=0) - self.z)
+                    , dim=0
                 )
-
-                if not (torch.isnan(m1[j]).item() or torch.isnan(m2[j]).item()):
-                    self.k_w[j] = - torch.log(torch.tensor(2.0)) / torch.log(1 - m2[j] / m1[j])
-                    self.lmd_w[j] = m1[j] / torch.exp(torch.lgamma(1/self.k_w[j] + 1))
+                / self.z.sum(axis=0)
+                / (self.z.sum(axis=0) - 1)
+                - m1
+            )
+            self.k_w = - torch.log(torch.tensor(2.0)) / torch.log(1 - m2 / m1)
+            self.lmd_w = m1 / torch.exp(torch.lgamma(1/self.k_w + 1))
             cond_probs = self.cond_probs(self.X_sorted)
             self.z = cond_probs / torch.sum(cond_probs, axis=1, keepdim=True)
             # cond_cdf = self.cond_cdf(self.X_sorted)
