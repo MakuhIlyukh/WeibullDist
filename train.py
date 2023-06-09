@@ -3,6 +3,7 @@ from os.path import join as joinp
 from time import perf_counter_ns
 import pickle
 import json
+import sys
 
 import torch
 from torch import nn
@@ -45,7 +46,7 @@ ALGORITHM = "lmoments"
 # ALGORITHM = "moments_em"
 
 START_TRAIN_SEED = 107
-LR = 2.27*10**(-1)
+LR = 0.1
 N_EPOCHS = 200
 WEIGHT_DECAY = 0.0
 LOSS_PREFIX = "NLL"
@@ -58,10 +59,13 @@ Q_INIT = "1/m"
 MAX_NEWTON_ITER = 5
 NEWTON_TOL = 0.01
 OPT_NAME = "adam"
-SWITCH_ITER = 2
+SWITCH_ITER = 10
 
 
 if __name__ == '__main__':
+    ALGORITHM = sys.argv[1]
+    print(f"{ALGORITHM = }")
+
     # clearing folders
     del_folder_content(TRAIN_PLOTS_PATH)
     del_folder_content(TRAIN_DATA_PATH)
